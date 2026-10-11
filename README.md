@@ -8,6 +8,32 @@ Uma sala local para acompanhar sessões e subagentes do Claude Code. O aplicativ
 - [`uv` instalado](https://docs.astral.sh/uv/getting-started/installation/) e disponível no terminal
 - Claude Code, somente para acompanhar sessões reais
 
+## Instalação automática (Windows)
+
+O script [`scripts/install.ps1`](scripts/install.ps1) instala Git e Python 3.12+ com winget se faltarem, clona este repositório em `%LOCALAPPDATA%\AiOperationsRoom`, cria o `.venv`, faz backup de `~/.claude/settings.json`, registra os hooks, cria o atalho na pasta Inicializar e abre a sala. Não precisa de `uv` nem de administrador (exceto se o winget precisar instalar o Git).
+
+Em um PowerShell:
+
+```powershell
+[Net.ServicePointManager]::SecurityProtocol = 'Tls12'
+$f = "$env:TEMP\aor-install.ps1"
+Invoke-WebRequest https://raw.githubusercontent.com/Gelson2018/AiOperationsRoom/master/scripts/install.ps1 -OutFile $f -UseBasicParsing
+powershell -NoProfile -ExecutionPolicy Bypass -File $f
+```
+
+Executar o script de novo atualiza a instalação. Opções úteis, acrescentadas ao final da última linha:
+
+| Opção | Efeito |
+|---|---|
+| `-Port 8898` | Usa outra porta |
+| `-InstallDir D:\Tools\AiOperationsRoom` | Instala em outra pasta |
+| `-NoStartup` | Não abre a sala ao entrar no Windows |
+| `-NoBrowserAtLogin` | No login, inicia o servidor sem abrir o navegador |
+| `-Uninstall` | Para o servidor, remove hooks e atalho |
+| `-Uninstall -RemoveFiles -RemoveData` | Também apaga a pasta da instalação e o histórico |
+
+Sessões do Claude Code já abertas só passam a ser capturadas depois de reiniciadas.
+
 ## Início rápido
 
 ```powershell
