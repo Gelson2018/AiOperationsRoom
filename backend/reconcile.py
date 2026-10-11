@@ -24,7 +24,16 @@ def process_alive(pid: object) -> bool:
     if number <= 0:
         return False
     if sys.platform != "win32":
-        return Path(f"/proc/{number}").exists()
+        # Signal 0 only checks existence; macOS has no /proc.
+        try:
+            os.kill(number, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        except OSError:
+            return False
+        return True
 
     import ctypes
     from ctypes import wintypes
