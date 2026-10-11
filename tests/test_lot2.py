@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -275,3 +276,17 @@ def test_event_ingested_after_orphan_detection_reopens_run(monkeypatch, tmp_path
         main = client.get("/api/sessoes/race/agentes").json()["agentes"][0]
         assert main["estado"] == "trabalhando"
         assert main["atualizado_em"] == detected.isoformat(timespec="seconds")
+
+
+def test_hook_warning_reports_missing_hook_and_missing_python(tmp_path):
+    settings = tmp_path / "settings.json"
+    assert "não registrados" in cli.hook_warning(settings)
+    install_hooks(settings)
+    assert cli.hook_warning(settings) is None
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    for groups in data["hooks"].values():
+        for group in groups:
+            for item in group["hooks"]:
+                item["command"] = item["command"].replace(sys.executable, str(tmp_path / "gone" / "python.exe"))
+    settings.write_text(json.dumps(data), encoding="utf-8")
+    assert "não existe mais" in cli.hook_warning(settings)
