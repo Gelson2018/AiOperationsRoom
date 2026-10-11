@@ -241,3 +241,21 @@ def test_api_rejects_foreign_host_header(monkeypatch, tmp_path):
         response = client.post("/api/projetos", headers={"host": "attacker.example"},
                                json={"nome": "X", "caminho_local": "/x"})
         assert response.status_code == 400
+
+
+def test_unknown_session_with_active_subagent_gets_longer_grace(monkeypatch, tmp_path):
+    monkeypatch.setenv("AI_OPERATIONS_ROOM_DATA_DIR", str(tmp_path))
+    add_events(
+        {"id": "s1", "evento": "SessionStart", "session_id": "busy", "cwd": "/work", "t": at(-30)},
+        {"id": "s2", "evento": "SubagentStart", "session_id": "busy", "agent_id": "long", "agent_type": "Explore", "cwd": "/work", "t": at(-25)},
+        {"id": "s3", "evento": "SessionStart", "session_id": "gone", "cwd": "/work", "t": at(-70)},
+        {"id": "s4", "evento": "SubagentStart", "session_id": "gone", "agent_id": "lost", "agent_type": "Explore", "cwd": "/work", "t": at(-65)},
+    )
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        client.get("/api/sessoes")
+        with connect() as con:
+            assert reconcile(con, living={}, now=datetime.now(timezone.utc)) == 2
+        busy = {a["chave"]: a["estado"] for a in client.get("/api/sessoes/busy/agentes").json()["agentes"]}
+        gone = {a["chave"]: a["estado"] for a in client.get("/api/sessoes/gone/agentes").json()["agentes"]}
+        assert busy == {"session:busy": "delegando", "agent:long": "trabalhando"}
+        assert gone == {"session:gone": "orfa", "agent:lost": "orfa"}
