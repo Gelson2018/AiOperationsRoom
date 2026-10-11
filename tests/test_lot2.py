@@ -259,3 +259,19 @@ def test_unknown_session_with_active_subagent_gets_longer_grace(monkeypatch, tmp
         gone = {a["chave"]: a["estado"] for a in client.get("/api/sessoes/gone/agentes").json()["agentes"]}
         assert busy == {"session:busy": "delegando", "agent:long": "trabalhando"}
         assert gone == {"session:gone": "orfa", "agent:lost": "orfa"}
+
+
+def test_event_ingested_after_orphan_detection_reopens_run(monkeypatch, tmp_path):
+    monkeypatch.setenv("AI_OPERATIONS_ROOM_DATA_DIR", str(tmp_path))
+    add_events({"id": "r1", "evento": "SessionStart", "session_id": "race", "cwd": "/work", "t": at(-5)})
+    with TestClient(app, base_url="http://127.0.0.1") as client:
+        client.get("/api/sessoes")
+        detected = datetime.now(timezone.utc)
+        with connect() as con:
+            assert reconcile(con, living={"race": False}, now=detected) == 1
+        # Written by the hook before detection, ingested after it.
+        add_events({"id": "r2", "evento": "UserPromptSubmit", "session_id": "race", "cwd": "/work", "t": at(-1)})
+        client.get("/api/sessoes")
+        main = client.get("/api/sessoes/race/agentes").json()["agentes"][0]
+        assert main["estado"] == "trabalhando"
+        assert main["atualizado_em"] == detected.isoformat(timespec="seconds")
